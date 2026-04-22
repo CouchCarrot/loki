@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loki</title>
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a2a1a;
+            color: #e8f5e8;
+            font-family: 'Segoe UI', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 700px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+        .header { text-align: center; padding: 20px 0; }
+        .header h1 {
+            font-size: 3rem;
+            background: linear-gradient(135deg, #ffd700, #7ed321);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 8px;
+            font-weight: 900;
+        }
+        .header p {
+            color: #5cb85c;
+            font-size: 0.75rem;
+            margin-top: 6px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+        .crown { font-size: 1.5rem; margin-bottom: 4px; }
+        .time-context {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #ffd70088;
+            margin-bottom: 10px;
+            font-style: italic;
+            min-height: 18px;
+        }
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scrollbar-width: thin;
+            scrollbar-color: #5cb85c33 transparent;
+        }
+        .message {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message.user {
+            background: linear-gradient(135deg, #ffd70015, #7ed32115);
+            border: 1px solid #ffd70044;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .message.loki {
+            background: linear-gradient(135deg, #2d4a2d, #1e3a1e);
+            border: 1px solid #5cb85c33;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        .message .sender {
+            font-size: 0.7rem;
+            color: #5cb85c;
+            margin-bottom: 4px;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+        .message.user .sender { color: #ffd700; text-align: right; }
+        .input-area {
+            display: flex;
+            gap: 10px;
+            padding: 16px 0;
+            border-top: 1px solid #5cb85c22;
+        }
+        input {
+            flex: 1;
+            background: #2d4a2d;
+            border: 1px solid #5cb85c33;
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #e8f5e8;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border 0.2s;
+        }
+        input::placeholder { color: #5cb85c66; }
+        input:focus { border-color: #7ed32188; }
+        button {
+            background: linear-gradient(135deg, #ffd700, #7ed321);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            color: #1a2a1a;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .typing {
+            align-self: flex-start;
+            color: #5cb85c;
+            font-size: 0.8rem;
+            font-style: italic;
+            padding: 4px 8px;
+            animation: pulse 1.2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .chat-box::-webkit-scrollbar { width: 4px; }
+        .chat-box::-webkit-scrollbar-track { background: transparent; }
+        .chat-box::-webkit-scrollbar-thumb { background: #5cb85c44; border-radius: 4px; }
+        .divider {
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(135deg, #ffd700, #7ed321);
+            margin: 4px auto 0;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="crown">𓂀</div>
+            <h1>LOKI</h1>
+            <div class="divider"></div>
+            <p>God of Time · AI Assistant</p>
+        </div>
+        <div class="time-context" id="timeContext"></div>
+        <div class="chat-box" id="chatBox"></div>
+        <div class="input-area">
+            <input
+                type="text"
+                id="userInput"
+                placeholder="Speak to Loki..."
+                onkeydown="if(event.key==='Enter') sendMessage()"
+            />
+            <button id="sendBtn" onclick="sendMessage()">Send ⚡</button>
+        </div>
+    </div>
+
+    <script>
+        const userId = "user_akku";
+        let lastTimestamp = new Date().toISOString();
+
+        function addMessage(text, role, timestamp = null) {
+            const chatBox = document.getElementById("chatBox");
+
+            if (timestamp) {
+                const existing = document.querySelector(`[data-timestamp="${timestamp}"]`);
+                if (existing) return;
+            }
+
+            const msg = document.createElement("div");
+            msg.classList.add("message", role);
+            if (timestamp) msg.setAttribute("data-timestamp", timestamp);
+            msg.innerHTML = `
+                <div class="sender">${role === 'user' ? 'YOU' : 'LOKI'}</div>
+                <div>${text}</div>
+            `;
+            chatBox.appendChild(msg);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            if (timestamp && timestamp > lastTimestamp) {
+                lastTimestamp = timestamp;
+            } else if (!timestamp) {
+                const now = new Date().toISOString();
+                if (now > lastTimestamp) lastTimestamp = now;
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById("userInput");
+            const btn = document.getElementById("sendBtn");
+            const message = input.value.trim();
+            if (!message) return;
+
+            addMessage(message, "user");
+            input.value = "";
+            btn.disabled = true;
+
+            const typing = document.createElement("div");
+            typing.classList.add("typing");
+            typing.id = "typing";
+            typing.textContent = "Loki is thinking...";
+            document.getElementById("chatBox").appendChild(typing);
+            document.getElementById("chatBox").scrollTop = document.getElementById("chatBox").scrollHeight;
+
+            try {
+                const res = await fetch("/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ user_id: userId, message })
+                });
+                const data = await res.json();
+                document.getElementById("typing")?.remove();
+                addMessage(data.reply, "loki");
+                if (data.time_context) {
+                    document.getElementById("timeContext").textContent = "⏳ " + data.time_context;
+                }
+            } catch (err) {
+                document.getElementById("typing")?.remove();
+                addMessage("The Bifrost is down. Try again.", "loki");
+            }
+
+            btn.disabled = false;
+            input.focus();
+        }
+
+        async function pollMessages() {
+            try {
+                const res = await fetch(`/poll?user_id=${userId}&after=${encodeURIComponent(lastTimestamp)}`);
+                const data = await res.json();
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        const existing = document.querySelector(`[data-timestamp="${msg.timestamp}"]`);
+                        if (!existing) {
+                            addMessage(msg.message, "loki", msg.timestamp);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.log("Poll error:", err);
+            }
+        }
+
+        window.onload = () => {
+            addMessage("I am Loki. God of time, mischief, and your personal AI. What do you seek?", "loki");
+            setInterval(pollMessages, 5000);
+        };
+    </script>
+</body>
+</html>
