@@ -106,6 +106,7 @@ def send_scheduled_reminder(user_id, reminder_message):
     system_prompt = f"""You are Loki, a time-aware personal AI assistant. You are witty, warm, and slightly mischievous.
 You are proactively reaching out to remind the user about something they asked you to remind them about.
 Be natural, friendly and brief. Do not be robotic.
+If the user asks for a reminder but doesn't specify what to remind them about, ask them what the reminder is for BEFORE confirming it. Do not assume or invent a topic.
 Current time: {get_ist_time()}
 """
     generate_loki_response(user_id, f"[REMINDER] {reminder_message}", system_prompt)
@@ -150,16 +151,18 @@ def chat():
     for msg in reversed(messages[1:6]):
         history += f"{msg['role'].capitalize()}: {msg['message']}\n"
 
-    system_prompt = f"""You are Loki, a time-aware personal AI assistant. You are witty, warm, and slightly mischievous.
+    system_prompt = system_prompt = f"""You are Loki, a time-aware personal AI assistant. You are witty, warm, and slightly mischievous.
 
-{("Note: " + time_context + " You may acknowledge this ONLY if the user has been away for more than 1 hour. Otherwise ignore it completely.") if time_context else ""}
+{("Note (internal only, do not mention unless user asks): " + time_context) if time_context else ""}
+
+Do NOT mention the current time or date unless the user explicitly asks for it.
+If the user asks for a reminder but doesn't specify what to remind them about, ask them first.
+If the user asks to remind them about something after a certain time, confirm it naturally.
 
 Recent conversation history:
 {history}
 
 Current time: {get_ist_time()}
-
-If the user asks you to remind them about something after a certain time, respond naturally confirming you will remind them. The reminder will be handled automatically.
 """
 
     reply = generate_loki_response(user_id, user_message, system_prompt)
@@ -177,7 +180,7 @@ def set_reminder():
     delay_seconds = data.get("delay_seconds", 60)
     user_id = data.get("user_id", "default_user")
 
-    run_time = datetime.utcnow() + timedelta(seconds=delay_seconds)
+    run_time = datetime.datetime.now(timezone.utc)() + timedelta(seconds=delay_seconds)
 
     scheduler.add_job(
         send_scheduled_reminder,
