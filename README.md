@@ -120,4 +120,3 @@ No WebSockets. No push notification services. Just clean delayed responses.
 
 ---
 
-*Built in one day. Fueled by rejection and spite.* ⚡
